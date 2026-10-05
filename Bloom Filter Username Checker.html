@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bloom Filter Username Checker</title>
+<style>
+:root{color-scheme:light dark;--bg:light-dark(#f7f8fa,#111318);--panel:light-dark(#fff,#191c23);--text:light-dark(#15171b,#f3f4f6);--muted:light-dark(#68707d,#9aa2b1);--border:light-dark(#e3e6eb,#303541);--accent:light-dark(#4f46e5,#818cf8);--ok:light-dark(#15803d,#4ade80);--bad:light-dark(#dc2626,#f87171);--warn:light-dark(#b45309,#fbbf24)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.app{min-height:100vh;background:var(--bg);padding:40px 20px}.wrap{max-width:900px;margin:auto}.eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--accent);font-weight:700}.title{font-size:34px;line-height:1.1;margin:8px 0}.sub{color:var(--muted);margin:0 0 28px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:22px;box-shadow:0 8px 30px #0000000d}.label{display:block;font-weight:650;margin-bottom:8px}.inputrow{display:flex;gap:10px}.input{width:100%;border:1px solid var(--border);background:transparent;color:var(--text);border-radius:10px;padding:12px 13px;font-size:16px;outline:none}.input:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}button{border:0;border-radius:10px;padding:0 17px;background:var(--accent);color:white;font-weight:700;cursor:pointer}.hint{color:var(--muted);font-size:13px;margin-top:9px}.status{margin-top:18px;border-radius:12px;padding:14px}.available{background:color-mix(in srgb,var(--ok) 12%,transparent);color:var(--ok)}.taken{background:color-mix(in srgb,var(--bad) 12%,transparent);color:var(--bad)}.maybe{background:color-mix(in srgb,var(--warn) 12%,transparent);color:var(--warn)}.neutral{background:color-mix(in srgb,var(--muted) 10%,transparent);color:var(--muted)}.status strong{display:block;font-size:16px;margin-bottom:2px}.section-title{font-size:14px;font-weight:750;margin:0 0 14px}.bits{display:flex;flex-wrap:wrap;gap:5px}.bit{width:25px;height:25px;border-radius:6px;display:grid;place-items:center;font-size:11px;background:color-mix(in srgb,var(--muted) 13%,transparent);color:var(--muted)}.bit.on{background:var(--accent);color:white}.hashes{display:grid;gap:8px;margin-top:16px}.hash{display:flex;justify-content:space-between;padding:9px 11px;border:1px solid var(--border);border-radius:9px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}.db{margin-top:18px}.users{display:flex;flex-wrap:wrap;gap:7px}.user{font-size:12px;border:1px solid var(--border);border-radius:999px;padding:5px 9px;color:var(--muted)}.flow{margin-top:18px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:var(--muted);font-size:12px}.pill{border:1px solid var(--border);padding:6px 9px;border-radius:8px}.arrow{color:var(--accent)}details.hash{display:block;margin-top:10px;padding:12px 14px}details.hash summary{cursor:pointer;font-weight:600;line-height:1.5}details.hash pre.hash-code{display:block;overflow-x:auto;margin:12px 0 0;padding:14px;line-height:1.6;white-space:pre;border-radius:8px;background:color-mix(in srgb,var(--muted) 8%,transparent);font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace}@media(max-width:700px){.grid{grid-template-columns:1fr}.title{font-size:28px}.inputrow{flex-direction:column}.inputrow button{height:44px}}
+</style>
+</head>
+<body>
+<div class="app"><main class="wrap">
+<div class="eyebrow">Interactive demo</div>
+<h1 class="title">Bloom Filter Username Checker</h1>
+<p class="sub">The Bloom filter gives a fast pre-check. A simulated user list acts as the database.</p>
+<div class="grid">
+<section class="card">
+<label class="label" for="username">Username</label>
+<div class="inputrow"><input id="username" class="input" autocomplete="off" placeholder="Try: mayank, alice, xyz123"><button id="check">Check</button></div>
+<div class="hint">Try an existing name such as <b>mayank</b>, or a new name such as <b>xyz123</b>.</div>
+<div class="db"><h2 class="section-title">Add to simulated database</h2><div class="inputrow"><input id="newUser" class="input" autocomplete="off" placeholder="New username"><button id="addUser">Add user</button></div><div id="addStatus" class="hint">Add a username to update both the database and Bloom filter.</div></div>
+<div id="status" class="status neutral"><strong>Waiting for input</strong>Enter a username to start.</div>
+<div class="flow"><span class="pill">Username</span><span class="arrow">→</span><span class="pill">Bloom Filter</span><span class="arrow">→</span><span class="pill">Database if needed</span></div>
+</section>
+<section class="card">
+<h2 class="section-title">Bit array</h2>
+<div id="bits" class="bits"></div>
+<div id="hashes" class="hashes"><div class="hash"><span>Hash 1</span><span>—</span></div><div class="hash"><span>Hash 2</span><span>—</span></div><div class="hash"><span>Hash 3</span><span>—</span></div></div>
+<div class="db"><h2 class="section-title">How the hash works</h2><div class="hint">Click a step to expand the implementation.</div><details class="hash"><summary>Hash function 1 · seed 7</summary><pre class="hash-code">hash(value, seed) {
+  let hash = seed;
+
+  for (let i = 0; i &lt; value.length; i++) {
+    hash = (hash * 31 + value.charCodeAt(i)) % this.size;
+  }
+
+  return hash;
+}</pre></details><details class="hash"><summary>Hash function 2 · seed 13</summary><pre class="hash-code">hash(value, seed) {
+  let hash = seed;
+
+  for (let i = 0; i &lt; value.length; i++) {
+    hash = (hash * 31 + value.charCodeAt(i)) % this.size;
+  }
+
+  return hash;
+}</pre></details><details class="hash"><summary>Hash function 3 · seed 37</summary><pre class="hash-code">hash(value, seed) {
+  let hash = seed;
+
+  for (let i = 0; i &lt; value.length; i++) {
+    hash = (hash * 31 + value.charCodeAt(i)) % this.size;
+  }
+
+  return hash;
+}</pre></details></div>
+<div class="db"><h2 class="section-title">Simulated database</h2><div id="users" class="users"></div></div>
+</section>
+</div>
+</main></div>
+<script>
+const users=["mayank","john","alice","admin","developer","botsync"];
+class BloomFilter{constructor(size=64){this.size=size;this.bits=new Uint8Array(size)}hash(value,seed){let h=seed;for(let i=0;i<value.length;i++)h=(h*31+value.charCodeAt(i))%this.size;return h}add(value){value=value.toLowerCase();[7,13,37].forEach(s=>this.bits[this.hash(value,s)]=1)}positions(value){value=value.toLowerCase();return [7,13,37].map(s=>this.hash(value,s))}mightContain(value){return this.positions(value).every(i=>this.bits[i]===1)}}
+const filter=new BloomFilter();users.forEach(u=>filter.add(u));
+const bits=document.getElementById('bits'), hashes=document.getElementById('hashes'), status=document.getElementById('status'), input=document.getElementById('username');
+for(let i=0;i<filter.size;i++){const b=document.createElement('span');b.className='bit'+(filter.bits[i]?' on':'');b.textContent=filter.bits[i];bits.appendChild(b)}
+const usersEl=document.getElementById('users');function renderUsers(){usersEl.innerHTML=users.map(u=>`<span class="user">${u}</span>`).join('')}renderUsers();
+function render(){const value=input.value.trim().toLowerCase();document.querySelectorAll('.bit').forEach((b,i)=>{b.className='bit'+(filter.bits[i]?' on':'');b.textContent=filter.bits[i]});if(!value){status.className='status neutral';status.innerHTML='<strong>Waiting for input</strong>Enter a username to start.';hashes.innerHTML='<div class="hash"><span>Hash 1</span><span>—</span></div><div class="hash"><span>Hash 2</span><span>—</span></div><div class="hash"><span>Hash 3</span><span>—</span></div>';return}const pos=filter.positions(value);hashes.innerHTML=pos.map((p,i)=>`<div class="hash"><span>Hash ${i+1}</span><span>bit[${p}] = ${filter.bits[p]}</span></div>`).join('');const maybe=filter.mightContain(value);if(!maybe){status.className='status available';status.innerHTML='<strong>✓ Username is available</strong>Bloom filter found a 0 bit, so this username is definitely not in the database. The database check can be skipped.';return}const exists=users.includes(value);if(exists){status.className='status taken';status.innerHTML='<strong>✕ Username is taken</strong>Bloom filter said “maybe”. The database check confirms that the username exists.'}else{status.className='status available';status.innerHTML='<strong>✓ Username is available</strong>Bloom filter said “maybe”, but the database check found no match. This is a Bloom-filter false positive.'}}
+input.addEventListener('input',render);document.getElementById('check').addEventListener('click',render);input.addEventListener('keydown',e=>{if(e.key==='Enter')render()});render();
+document.getElementById('addUser').addEventListener('click',()=>{const value=document.getElementById('newUser').value.trim().toLowerCase();const addStatus=document.getElementById('addStatus');if(!value){addStatus.textContent='Enter a username first.';return}if(users.includes(value)){addStatus.textContent='That username is already in the database.';return}users.push(value);filter.add(value);renderUsers();render();document.getElementById('newUser').value='';addStatus.textContent=`Added “${value}” to the database and Bloom filter.`});
+</script>
+</body></html>
