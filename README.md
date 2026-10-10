@@ -8,8 +8,6 @@ The application checks if a username may already exist.
 
 It uses:
 
-- React
-- JavaScript
 - A Bloom filter
 - An in-memory list as a simulated database
 
